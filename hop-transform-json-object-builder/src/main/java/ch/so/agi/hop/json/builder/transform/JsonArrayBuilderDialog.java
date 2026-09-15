@@ -48,12 +48,18 @@ public class JsonArrayBuilderDialog extends BaseTransformDialog {
   private Label wlJsonPointer;
   private Button wSkipNullElements;
   private TableView wGroupBy;
+  private final TransformMeta originalTransform;
+
   private String[] fieldNames = new String[0];
 
   public JsonArrayBuilderDialog(
-      Shell parent, IVariables variables, JsonArrayBuilderMeta transformMeta, PipelineMeta pipelineMeta) {
+      Shell parent,
+      IVariables variables,
+      JsonArrayBuilderMeta transformMeta,
+      PipelineMeta pipelineMeta) {
     super(parent, variables, transformMeta, pipelineMeta);
     this.input = transformMeta;
+    this.originalTransform = this.transformMeta;
   }
 
   @Override
@@ -192,7 +198,7 @@ public class JsonArrayBuilderDialog extends BaseTransformDialog {
   }
 
   private IRowMeta previousFields() {
-    TransformMeta transformMeta = pipelineMeta.findTransform(transformName);
+    TransformMeta transformMeta = originalTransform;
     if (transformMeta == null) {
       return null;
     }
@@ -219,7 +225,8 @@ public class JsonArrayBuilderDialog extends BaseTransformDialog {
 
     for (int i = 0; i < input.getGroupByFields().size(); i++) {
       TableItem item = wGroupBy.table.getItem(i);
-      item.setText(1, input.getGroupByFields().get(i) == null ? "" : input.getGroupByFields().get(i));
+      item.setText(
+          1, input.getGroupByFields().get(i) == null ? "" : input.getGroupByFields().get(i));
     }
     wGroupBy.setRowNums();
     wGroupBy.optWidth(true);
@@ -256,38 +263,43 @@ public class JsonArrayBuilderDialog extends BaseTransformDialog {
     if (Utils.isEmpty(wTransformName.getText())) {
       return;
     }
-    transformName = wTransformName.getText();
+    JsonArrayBuilderMeta candidate = new JsonArrayBuilderMeta(input);
 
-    input.setOutputField(wOutputField.getText());
-    input.setOutputType(JsonOutputType.lookupDescription(wOutputType.getText(), JsonOutputType.JSON));
-    input.setPrettyPrint(wPrettyPrint.getSelection());
-    input.setElementMode(
+    candidate.setOutputField(wOutputField.getText());
+    candidate.setOutputType(
+        JsonOutputType.lookupDescription(wOutputType.getText(), JsonOutputType.JSON));
+    candidate.setPrettyPrint(wPrettyPrint.getSelection());
+    candidate.setElementMode(
         wElementRowRadio.getSelection() ? JsonElementMode.WHOLE_ROW : JsonElementMode.FIELD_VALUE);
-    input.setElementField(wElementField.getText());
-    input.setElementType(JsonValueType.lookupDescription(wElementType.getText(), JsonValueType.AUTO));
-    input.setInsertIntoTarget(wInsertIntoTarget.getSelection());
-    input.setBaseJsonField(wBaseJsonField.getText());
-    input.setJsonPointer(wJsonPointer.getText());
-    input.setSkipNullElements(wSkipNullElements.getSelection());
+    candidate.setElementField(wElementField.getText());
+    candidate.setElementType(
+        JsonValueType.lookupDescription(wElementType.getText(), JsonValueType.AUTO));
+    candidate.setInsertIntoTarget(wInsertIntoTarget.getSelection());
+    candidate.setBaseJsonField(wBaseJsonField.getText());
+    candidate.setJsonPointer(wJsonPointer.getText());
+    candidate.setSkipNullElements(wSkipNullElements.getSelection());
 
-    input.getGroupByFields().clear();
+    candidate.getGroupByFields().clear();
     for (TableItem item : wGroupBy.getNonEmptyItems()) {
       String field = item.getText(1);
       if (!Utils.isEmpty(field)) {
-        input.getGroupByFields().add(field);
+        candidate.getGroupByFields().add(field);
       }
     }
 
     try {
-      input.validate(previousFields(), variables);
+      candidate.validate(previousFields(), variables);
     } catch (Exception e) {
       showWarning(e.getMessage());
       return;
     }
+    input.copyConfigurationFrom(candidate);
+    input.setChanged();
+    transformName = wTransformName.getText();
     dispose();
   }
 
-  private void showWarning(String message) {
+  void showWarning(String message) {
     MessageBox messageBox = new MessageBox(shell, SWT.ICON_WARNING | SWT.OK);
     messageBox.setText("Invalid configuration");
     messageBox.setMessage(message);

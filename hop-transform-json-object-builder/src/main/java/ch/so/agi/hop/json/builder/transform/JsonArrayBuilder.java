@@ -33,10 +33,6 @@ public class JsonArrayBuilder extends BaseTransform<JsonArrayBuilderMeta, JsonAr
 
     if (first) {
       first = false;
-      if (getInputRowMeta() == null) {
-        setOutputDone();
-        return false;
-      }
       initialize();
     }
 
@@ -76,6 +72,14 @@ public class JsonArrayBuilder extends BaseTransform<JsonArrayBuilderMeta, JsonAr
 
   private void initialize() throws HopException {
     data.inputRowMeta = getInputRowMeta();
+    if (data.inputRowMeta == null) {
+      data.inputRowMeta = getPipelineMeta().getPrevTransformFields(this, getTransformMeta());
+      if (data.inputRowMeta == null) {
+        throw new HopTransformException(
+            "No input row metadata is available from upstream transforms.");
+      }
+      setInputRowMeta(data.inputRowMeta);
+    }
     data.outputRowMeta = data.inputRowMeta.clone();
     meta.getFields(data.outputRowMeta, getTransformName(), null, null, this, metadataProvider);
     meta.validate(data.inputRowMeta, this);
@@ -120,7 +124,8 @@ public class JsonArrayBuilder extends BaseTransform<JsonArrayBuilderMeta, JsonAr
       throw new HopTransformException(
           "Base JSON field '"
               + data.resolvedBaseField
-              + "' is null; the insert into existing JSON object mode needs an existing JSON document.");
+              + "' is null; the insert into existing JSON object mode needs an existing JSON"
+              + " document.");
     }
     return base;
   }
@@ -128,12 +133,16 @@ public class JsonArrayBuilder extends BaseTransform<JsonArrayBuilderMeta, JsonAr
   private void addElement(Object[] row) throws HopTransformException {
     JsonNode element;
     if (meta.getElementMode() == JsonElementMode.WHOLE_ROW) {
-      element =
-          JsonTransformSupport.rowObject(data.inputRowMeta, row, meta.isSkipNullElements());
+      element = JsonTransformSupport.rowObject(data.inputRowMeta, row, meta.isSkipNullElements());
     } else {
       element =
           JsonTransformSupport.fieldValue(
-              data.inputRowMeta, row, data.elementIndex, meta.getElementType(), data.resolvedElementField);
+              data.inputRowMeta,
+              row,
+              data.elementIndex,
+              meta.getElementType(),
+              data.resolvedElementField,
+              meta.isSkipNullElements());
     }
 
     if (JsonTransformSupport.isMissing(element)) {
@@ -190,11 +199,7 @@ public class JsonArrayBuilder extends BaseTransform<JsonArrayBuilderMeta, JsonAr
         JsonPointerEditor.setArray(data.currentBase, data.jsonPointer, data.currentArray);
       } catch (IllegalArgumentException e) {
         throw new HopTransformException(
-            "Unable to insert the JSON array at '"
-                + data.jsonPointer
-                + "': "
-                + e.getMessage(),
-            e);
+            "Unable to insert the JSON array at '" + data.jsonPointer + "': " + e.getMessage(), e);
       }
       outputNode = data.currentBase;
     }

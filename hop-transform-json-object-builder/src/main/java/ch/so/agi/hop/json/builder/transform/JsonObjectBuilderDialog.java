@@ -22,7 +22,6 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
@@ -48,12 +47,18 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
   private TableView wMappings;
   private TableView wGroupBy;
   private ColumnInfo[] mappingColumns;
+  private final TransformMeta originalTransform;
+
   private String[] fieldNames = new String[0];
 
   public JsonObjectBuilderDialog(
-      Shell parent, IVariables variables, JsonObjectBuilderMeta transformMeta, PipelineMeta pipelineMeta) {
+      Shell parent,
+      IVariables variables,
+      JsonObjectBuilderMeta transformMeta,
+      PipelineMeta pipelineMeta) {
     super(parent, variables, transformMeta, pipelineMeta);
     this.input = transformMeta;
+    this.originalTransform = this.transformMeta;
   }
 
   @Override
@@ -135,7 +140,8 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
           new ColumnInfo(
               "Value source", ColumnInfo.COLUMN_TYPE_CCOMBO, JsonValueSource.descriptions()),
           new ColumnInfo("Type", ColumnInfo.COLUMN_TYPE_CCOMBO, JsonValueType.descriptions()),
-          new ColumnInfo("Skip when null", ColumnInfo.COLUMN_TYPE_CCOMBO, new String[] {COMBO_NO, COMBO_YES})
+          new ColumnInfo(
+              "Skip when null", ColumnInfo.COLUMN_TYPE_CCOMBO, new String[] {COMBO_NO, COMBO_YES})
         };
     wMappings =
         new TableView(
@@ -196,7 +202,7 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
   }
 
   private IRowMeta previousFields() {
-    TransformMeta transformMeta = pipelineMeta.findTransform(transformName);
+    TransformMeta transformMeta = originalTransform;
     if (transformMeta == null) {
       return null;
     }
@@ -222,7 +228,10 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
       TableItem item = wMappings.table.getItem(i);
       int column = 1;
       item.setText(
-          column++, mapping.getKeySource() == JsonKeySource.LITERAL ? nvl(mapping.getKey()) : nvl(mapping.getKeyField()));
+          column++,
+          mapping.getKeySource() == JsonKeySource.LITERAL
+              ? nvl(mapping.getKey())
+              : nvl(mapping.getKeyField()));
       item.setText(column++, mapping.getKeySource().getDescription());
       item.setText(
           column++,
@@ -265,16 +274,17 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
     if (Utils.isEmpty(wTransformName.getText())) {
       return;
     }
-    transformName = wTransformName.getText();
+    JsonObjectBuilderMeta candidate = new JsonObjectBuilderMeta(input);
 
-    input.setOutputField(wOutputField.getText());
-    input.setOutputType(JsonOutputType.lookupDescription(wOutputType.getText(), JsonOutputType.JSON));
-    input.setPrettyPrint(wPrettyPrint.getSelection());
-    input.setMode(wModeInsert.getSelection() ? JsonBuilderMode.INSERT : JsonBuilderMode.CREATE);
-    input.setBaseJsonField(wBaseJsonField.getText());
-    input.setJsonPointer(wJsonPointer.getText());
+    candidate.setOutputField(wOutputField.getText());
+    candidate.setOutputType(
+        JsonOutputType.lookupDescription(wOutputType.getText(), JsonOutputType.JSON));
+    candidate.setPrettyPrint(wPrettyPrint.getSelection());
+    candidate.setMode(wModeInsert.getSelection() ? JsonBuilderMode.INSERT : JsonBuilderMode.CREATE);
+    candidate.setBaseJsonField(wBaseJsonField.getText());
+    candidate.setJsonPointer(wJsonPointer.getText());
 
-    input.getMappings().clear();
+    candidate.getMappings().clear();
     for (TableItem item : wMappings.getNonEmptyItems()) {
       String keyText = item.getText(1);
       String valueText = item.getText(3);
@@ -282,8 +292,7 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
         continue;
       }
       JsonMapping mapping = new JsonMapping();
-      mapping.setKeySource(
-          JsonKeySource.lookupDescription(item.getText(2), JsonKeySource.LITERAL));
+      mapping.setKeySource(JsonKeySource.lookupDescription(item.getText(2), JsonKeySource.LITERAL));
       if (mapping.getKeySource() == JsonKeySource.LITERAL) {
         mapping.setKey(keyText);
       } else {
@@ -298,27 +307,30 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
       }
       mapping.setValueType(JsonValueType.lookupDescription(item.getText(5), JsonValueType.AUTO));
       mapping.setSkipIfNull(COMBO_YES.equalsIgnoreCase(item.getText(6)));
-      input.getMappings().add(mapping);
+      candidate.getMappings().add(mapping);
     }
 
-    input.getGroupByFields().clear();
+    candidate.getGroupByFields().clear();
     for (TableItem item : wGroupBy.getNonEmptyItems()) {
       String field = item.getText(1);
       if (!Utils.isEmpty(field)) {
-        input.getGroupByFields().add(field);
+        candidate.getGroupByFields().add(field);
       }
     }
 
     try {
-      input.validate(previousFields(), variables);
+      candidate.validate(previousFields(), variables);
     } catch (Exception e) {
       showWarning(e.getMessage());
       return;
     }
+    input.copyConfigurationFrom(candidate);
+    input.setChanged();
+    transformName = wTransformName.getText();
     dispose();
   }
 
-  private void showWarning(String message) {
+  void showWarning(String message) {
     MessageBox messageBox = new MessageBox(shell, SWT.ICON_WARNING | SWT.OK);
     messageBox.setText("Invalid configuration");
     messageBox.setMessage(message);

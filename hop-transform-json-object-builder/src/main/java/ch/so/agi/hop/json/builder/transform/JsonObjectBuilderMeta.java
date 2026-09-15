@@ -25,7 +25,8 @@ import org.apache.hop.pipeline.transform.TransformMeta;
     id = "JSON_OBJECT_BUILDER",
     name = "JSON Object Builder",
     description =
-        "Builds JSON objects from typed field mappings, optionally inserted into an existing JSON document at a JSON Pointer (RFC 6901)",
+        "Builds JSON objects from typed field mappings, optionally inserted into an existing JSON"
+            + " document at a JSON Pointer (RFC 6901)",
     image = "ch/so/agi/hop/json/builder/transform/icons/json-object-builder.svg",
     categoryDescription = "JSON",
     keywords = {
@@ -74,6 +75,10 @@ public class JsonObjectBuilderMeta
 
   public JsonObjectBuilderMeta(JsonObjectBuilderMeta meta) {
     this();
+    copyConfigurationFrom(meta);
+  }
+
+  void copyConfigurationFrom(JsonObjectBuilderMeta meta) {
     this.outputField = meta.outputField;
     this.outputType = meta.outputType;
     this.prettyPrint = meta.prettyPrint;
@@ -125,13 +130,14 @@ public class JsonObjectBuilderMeta
     if (isGrouping()) {
       IRowMeta inputRowMeta = rowMeta.clone();
       rowMeta.clear();
-      for (String groupField : getGroupByFields()) {
+      for (String groupField : resolvedGroupByFields(variables)) {
         if (Utils.isEmpty(groupField)) {
           continue;
         }
         int index = inputRowMeta.indexOfValue(groupField);
         if (index < 0) {
-          throw new HopTransformException("Group by field not found on the input row: " + groupField);
+          throw new HopTransformException(
+              "Group by field not found on the input row: " + groupField);
         }
         rowMeta.addValueMeta(inputRowMeta.getValueMeta(index));
       }
@@ -211,7 +217,11 @@ public class JsonObjectBuilderMeta
           keyIndex = inputRowMeta.indexOfValue(keyField);
           if (keyIndex < 0) {
             throw new HopTransformException(
-                "Mapping row " + row + ": key field '" + keyField + "' was not found on the input row.");
+                "Mapping row "
+                    + row
+                    + ": key field '"
+                    + keyField
+                    + "' was not found on the input row.");
           }
         }
       }
@@ -224,7 +234,9 @@ public class JsonObjectBuilderMeta
       if (valueSource == JsonValueSource.LITERAL) {
         valueText = JsonTransformSupport.resolve(variables, mapping.getValue());
         try {
-          JsonValueConversion.literalToJson(valueText, valueType);
+          if (!(mapping.isSkipIfNull() && valueText.isEmpty())) {
+            JsonValueConversion.literalToJson(valueText, valueType);
+          }
         } catch (IllegalArgumentException e) {
           throw new HopTransformException("Mapping row " + row + ": " + e.getMessage(), e);
         }
@@ -274,7 +286,8 @@ public class JsonObjectBuilderMeta
       }
       int index = inputRowMeta.indexOfValue(field);
       if (index < 0) {
-        throw new HopTransformException("Group by field '" + field + "' was not found on the input row.");
+        throw new HopTransformException(
+            "Group by field '" + field + "' was not found on the input row.");
       }
       indexes[i] = index;
     }
@@ -337,17 +350,19 @@ public class JsonObjectBuilderMeta
       validate(prev, variables);
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_OK, "JSON object builder configuration looks valid.", transformMeta));
+              ICheckResult.TYPE_RESULT_OK,
+              "JSON object builder configuration looks valid.",
+              transformMeta));
     } catch (HopTransformException e) {
-      remarks.add(
-          new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), transformMeta));
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), transformMeta));
     }
 
     if (isGrouping()) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_COMMENT,
-              "Grouped rows are merged into one JSON object per group; the input must be sorted by the group by fields.",
+              "Grouped rows are merged into one JSON object per group; the input must be sorted by"
+                  + " the group by fields.",
               transformMeta));
     }
     if (getMode() == JsonBuilderMode.CREATE && !Utils.isEmpty(jsonPointer)) {

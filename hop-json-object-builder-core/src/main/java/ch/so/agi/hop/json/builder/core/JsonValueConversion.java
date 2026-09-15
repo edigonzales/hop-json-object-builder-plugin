@@ -31,7 +31,7 @@ public final class JsonValueConversion {
         case NUMBER -> JsonSupport.NODES.numberNode(Double.parseDouble(value.trim()));
         case BIGNUMBER -> JsonSupport.NODES.numberNode(new BigDecimal(value.trim()));
         case BOOLEAN -> JsonSupport.NODES.booleanNode(parseBoolean(value.trim()));
-        case JSON -> JsonSupport.MAPPER.readTree(value);
+        case JSON -> JsonSupport.parse(value);
         case NULL -> JsonSupport.NODES.nullNode();
       };
     } catch (Exception e) {

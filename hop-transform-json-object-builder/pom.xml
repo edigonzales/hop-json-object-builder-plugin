@@ -36,6 +36,21 @@
       <version>${project.version}</version>
     </dependency>
 
+    <!-- Desktop implementations are needed to exercise the real SWT dialogs in tests. -->
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-ui-rcp</artifactId>
+      <version>${hop.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <!-- These dialogs do not use the syntax editor; its p2 wrapper is not published. -->
+        <exclusion>
+          <groupId>org.eclipse</groupId>
+          <artifactId>org.eclipse.tm4e.core</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

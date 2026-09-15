@@ -24,11 +24,13 @@ import org.apache.hop.pipeline.transform.TransformMeta;
     id = "JSON_ARRAY_BUILDER",
     name = "JSON Array Builder",
     description =
-        "Aggregates rows into a JSON array, optionally grouped by key fields and inserted into an existing JSON document at a JSON Pointer (RFC 6901)",
+        "Aggregates rows into a JSON array, optionally grouped by key fields and inserted into an"
+            + " existing JSON document at a JSON Pointer (RFC 6901)",
     image = "ch/so/agi/hop/json/builder/transform/icons/json-array-builder.svg",
     categoryDescription = "JSON",
     keywords = {"json", "array builder", "aggregate", "json pointer", "rfc 6901", "stac", "links"})
-public class JsonArrayBuilderMeta extends BaseTransformMeta<JsonArrayBuilder, JsonArrayBuilderData> {
+public class JsonArrayBuilderMeta
+    extends BaseTransformMeta<JsonArrayBuilder, JsonArrayBuilderData> {
 
   @HopMetadataProperty(key = "output_field")
   private String outputField;
@@ -71,6 +73,10 @@ public class JsonArrayBuilderMeta extends BaseTransformMeta<JsonArrayBuilder, Js
 
   public JsonArrayBuilderMeta(JsonArrayBuilderMeta meta) {
     this();
+    copyConfigurationFrom(meta);
+  }
+
+  void copyConfigurationFrom(JsonArrayBuilderMeta meta) {
     this.outputField = meta.outputField;
     this.outputType = meta.outputType;
     this.prettyPrint = meta.prettyPrint;
@@ -152,7 +158,8 @@ public class JsonArrayBuilderMeta extends BaseTransformMeta<JsonArrayBuilder, Js
         throw new HopTransformException("Element field is missing.");
       }
       if (inputRowMeta != null && inputRowMeta.indexOfValue(field) < 0) {
-        throw new HopTransformException("Element field '" + field + "' was not found on the input row.");
+        throw new HopTransformException(
+            "Element field '" + field + "' was not found on the input row.");
       }
     }
 
@@ -259,7 +266,9 @@ public class JsonArrayBuilderMeta extends BaseTransformMeta<JsonArrayBuilder, Js
       validate(prev, variables);
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_OK, "JSON array builder configuration looks valid.", transformMeta));
+              ICheckResult.TYPE_RESULT_OK,
+              "JSON array builder configuration looks valid.",
+              transformMeta));
     } catch (HopTransformException e) {
       remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), transformMeta));
     }
@@ -268,7 +277,8 @@ public class JsonArrayBuilderMeta extends BaseTransformMeta<JsonArrayBuilder, Js
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_COMMENT,
-              "One JSON array is created per group of the group by fields; the input must be sorted by these fields.",
+              "One JSON array is created per group of the group by fields; the input must be sorted"
+                  + " by these fields.",
               transformMeta));
     } else {
       remarks.add(

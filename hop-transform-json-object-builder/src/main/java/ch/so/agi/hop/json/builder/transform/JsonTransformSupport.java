@@ -35,7 +35,8 @@ final class JsonTransformSupport {
     }
     try {
       if (valueMeta.getType() == IValueMeta.TYPE_JSON) {
-        return valueMeta.getJson(raw);
+        JsonNode node = valueMeta.getJson(raw);
+        return node == null ? null : node.deepCopy();
       }
       String text = valueMeta.getString(raw);
       if (text == null || text.isBlank()) {
@@ -50,7 +51,12 @@ final class JsonTransformSupport {
 
   /** Converts a non-null input field value to a JSON node using the configured value type. */
   static JsonNode fieldValue(
-      IRowMeta rowMeta, Object[] row, int index, JsonValueType valueType, String fieldName)
+      IRowMeta rowMeta,
+      Object[] row,
+      int index,
+      JsonValueType valueType,
+      String fieldName,
+      boolean skipMissing)
       throws HopTransformException {
     IValueMeta valueMeta = rowMeta.getValueMeta(index);
     Object raw = row[index];
@@ -59,6 +65,9 @@ final class JsonTransformSupport {
     }
     JsonValueType type = valueType == null ? JsonValueType.AUTO : valueType;
     try {
+      if (skipMissing && isMissingInput(valueMeta, raw)) {
+        return null;
+      }
       return convert(valueMeta, raw, type);
     } catch (Exception e) {
       throw new HopTransformException(
@@ -86,8 +95,11 @@ final class JsonTransformSupport {
         continue;
       }
       try {
+        if (skipNullFields && isMissingInput(valueMeta, raw)) {
+          continue;
+        }
         JsonNode node = convert(valueMeta, raw, JsonValueType.AUTO);
-        if (skipNullFields && node.isTextual() && node.asText().isEmpty()) {
+        if (skipNullFields && isMissing(node)) {
           continue;
         }
         object.set(valueMeta.getName(), node);
@@ -106,15 +118,35 @@ final class JsonTransformSupport {
       try {
         return prettyPrint ? JsonNodeSerializer.pretty(node) : JsonNodeSerializer.compact(node);
       } catch (Exception e) {
-        throw new HopTransformException("Unable to serialize the JSON output: " + e.getMessage(), e);
+        throw new HopTransformException(
+            "Unable to serialize the JSON output: " + e.getMessage(), e);
       }
     }
     return node;
   }
 
-  /** True when the value counts as missing: a Java null or an empty string value. */
+  /**
+   * True when the value counts as missing: Java null, JSON null/missing, or an empty string value.
+   */
   static boolean isMissing(JsonNode node) {
-    return node == null || (node.isTextual() && node.asText().isEmpty());
+    return node == null
+        || node.isNull()
+        || node.isMissingNode()
+        || (node.isTextual() && node.asText().isEmpty());
+  }
+
+  private static boolean isMissingInput(IValueMeta valueMeta, Object raw) throws Exception {
+    if (raw == null) {
+      return true;
+    }
+    if (valueMeta.getType() == IValueMeta.TYPE_JSON) {
+      return isMissing(valueMeta.getJson(raw));
+    }
+    if (valueMeta.getType() == IValueMeta.TYPE_STRING) {
+      String text = valueMeta.getString(raw);
+      return text == null || text.isEmpty();
+    }
+    return false;
   }
 
   private static JsonNode convert(IValueMeta valueMeta, Object raw, JsonValueType type)
@@ -134,7 +166,7 @@ final class JsonTransformSupport {
   private static JsonNode jsonValue(IValueMeta valueMeta, Object raw) throws Exception {
     if (valueMeta.getType() == IValueMeta.TYPE_JSON) {
       JsonNode node = valueMeta.getJson(raw);
-      return node == null ? JsonSupport.NODES.nullNode() : node;
+      return node == null ? JsonSupport.NODES.nullNode() : node.deepCopy();
     }
     String text = valueMeta.getString(raw);
     if (text == null || text.isBlank()) {
@@ -147,7 +179,7 @@ final class JsonTransformSupport {
     return switch (valueMeta.getType()) {
       case IValueMeta.TYPE_JSON -> {
         JsonNode node = valueMeta.getJson(raw);
-        yield node == null ? JsonSupport.NODES.nullNode() : node;
+        yield node == null ? JsonSupport.NODES.nullNode() : node.deepCopy();
       }
       case IValueMeta.TYPE_BOOLEAN -> JsonSupport.NODES.booleanNode(valueMeta.getBoolean(raw));
       case IValueMeta.TYPE_INTEGER -> JsonSupport.NODES.numberNode(valueMeta.getInteger(raw));

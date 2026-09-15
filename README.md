@@ -47,6 +47,10 @@ Boolean, JSON, Date/Timestamp as string). `STRING`, `INTEGER`, `NUMBER`, `BIGNUM
 `["data"]`, `{"href": "..."}` or `null` into real JSON structures instead of escaped
 strings.
 
+Native JSON base documents and fragments are copied before use. Building or extending a
+document does not modify its input JSON values or documents already emitted. Mapping the
+base field into the result inserts an independent copy of the original document.
+
 If the output field name equals an existing input field name, the field is replaced in
 place (including its type). This allows FME-like chains: `item_json` is built, extended
 with `/properties`, extended with `/assets` — the document grows in one field.
@@ -63,10 +67,25 @@ with `/properties`, extended with `/assets` — the document grows in one field.
 
 ### Null and empty handling
 
-- `skip when null` / `Skip null elements` skip both Java `null` and empty string values.
-- Without the flag, `null` becomes JSON `null`; empty strings stay empty strings.
+- `skip when null` / `Skip null elements` skip Java `null`, JSON null/missing nodes and
+  empty strings, including explicit `NULL` mappings and the JSON literal `null`. Empty
+  values are skipped before forced conversions, including numeric conversions. In
+  whole-row mode the same rule applies to individual fields.
+- Without the flag, null values are retained and the configured type conversion applies;
+  `AUTO`/`STRING` preserve empty strings. Whitespace-only strings are not generally
+  treated as empty; the existing JSON and numeric conversions still apply.
 - In insert mode a null or blank base JSON field is an error: the transform never
   invents a document silently.
+
+JSON text must contain exactly one complete JSON value. Trailing whitespace is allowed;
+a second value or trailing non-JSON content is rejected for base fields, fragments and literals.
+
+With empty input, the array builder emits one `[]` in ungrouped create mode. Ungrouped
+insert mode fails because no base document is available. Grouped modes emit no rows when
+there are no groups. Configuration is still validated for empty input.
+
+Dialog edits are committed only after successful validation. Cancelling after a failed
+save preserves the original configuration, including when the transform was being renamed.
 
 ### Grouping rules
 
@@ -74,7 +93,8 @@ Grouped modes follow the `Enhanced JSON Output` model: the input must be **sorte
 group by fields**, otherwise rows of the same group are emitted as separate documents.
 The transforms log a hint on startup; the shipped example pipelines use `Sort rows`
 before grouped transforms. Grouped output rows contain only the group by fields and the
-JSON field.
+JSON field. Group field names can contain Hop variables; resolved names are used for
+validation and processing in both builders.
 
 ## Modules
 
@@ -166,9 +186,15 @@ The automated test suite covers:
 - runtime behavior: row-wise object creation, pointer insertion, grouped dynamic keys,
   in-place replacement, skip-when-null/empty, invalid base JSON, array aggregation with
   and without grouping, whole-row elements, array insertion at a pointer
+- regression cases for native JSON isolation, strict parsing, null skipping, empty streams
+  and variable-based grouping
+- SWT dialog validation, cancellation and successful save, including renaming
 - plugin contract (IDs, category, dialog classes, packaged icons)
 - loading the shipped example pipelines with Hop 2.19 to keep them in sync
 - the installed-plugin E2E in CI
+
+Dialog tests use the test-only `hop-ui-rcp` dependency and require a desktop display
+(or Xvfb on headless Linux). It is not included in the plugin ZIP.
 
 Run tests only:
 

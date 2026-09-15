@@ -5,7 +5,6 @@ import ch.so.agi.hop.json.builder.core.JsonSupport;
 import ch.so.agi.hop.json.builder.core.JsonValueConversion;
 import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.exception.HopTransformException;
 import org.apache.hop.core.row.RowDataUtil;
@@ -64,7 +63,8 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
     applyMappings(row);
 
     Object output =
-        JsonTransformSupport.outputValue(data.currentRoot, meta.getOutputType(), meta.isPrettyPrint());
+        JsonTransformSupport.outputValue(
+            data.currentRoot, meta.getOutputType(), meta.isPrettyPrint());
     Object[] outputRow;
     if (data.replaceInPlace) {
       outputRow = data.inputRowMeta.cloneRow(row);
@@ -87,7 +87,8 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
     String outputName = JsonTransformSupport.resolve(this, meta.getOutputField());
     data.outputFieldIndex = data.outputRowMeta.indexOfValue(outputName);
     if (data.outputFieldIndex < 0) {
-      throw new HopTransformException("Output field was not found on the output row: " + outputName);
+      throw new HopTransformException(
+          "Output field was not found on the output row: " + outputName);
     }
 
     data.grouping = meta.isGrouping();
@@ -121,7 +122,8 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
         throw new HopTransformException(
             "Base JSON field '"
                 + data.resolvedBaseField
-                + "' is null; the insert into existing JSON object mode needs an existing JSON document.");
+                + "' is null; the insert into existing JSON object mode needs an existing JSON"
+                + " document.");
       }
       data.currentRoot = base;
     } else {
@@ -132,11 +134,7 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
       data.currentTarget = JsonPointerEditor.resolveObject(data.currentRoot, data.jsonPointer);
     } catch (IllegalArgumentException e) {
       throw new HopTransformException(
-          "Unable to resolve JSON Pointer '"
-              + data.jsonPointer
-              + "': "
-              + e.getMessage(),
-          e);
+          "Unable to resolve JSON Pointer '" + data.jsonPointer + "': " + e.getMessage(), e);
     }
   }
 
@@ -189,7 +187,15 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
       throws HopTransformException {
     if (mapping.valueFromField()) {
       return JsonTransformSupport.fieldValue(
-          data.inputRowMeta, row, mapping.valueIndex, mapping.valueType, mapping.valueFieldName);
+          data.inputRowMeta,
+          row,
+          mapping.valueIndex,
+          mapping.valueType,
+          mapping.valueFieldName,
+          mapping.skipIfNull);
+    }
+    if (mapping.skipIfNull && mapping.valueText.isEmpty()) {
+      return null;
     }
     try {
       return JsonValueConversion.literalToJson(mapping.valueText, mapping.valueType);
@@ -204,7 +210,8 @@ public class JsonObjectBuilder extends BaseTransform<JsonObjectBuilderMeta, Json
     }
 
     Object output =
-        JsonTransformSupport.outputValue(data.currentRoot, meta.getOutputType(), meta.isPrettyPrint());
+        JsonTransformSupport.outputValue(
+            data.currentRoot, meta.getOutputType(), meta.isPrettyPrint());
     Object[] outputRow = new Object[data.groupIndexes.length + 1];
     for (int i = 0; i < data.groupIndexes.length; i++) {
       outputRow[i] = data.currentGroupRow[data.groupIndexes[i]];
