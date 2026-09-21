@@ -1,0 +1,117 @@
+[[json-object-builder]]
+= JSON Object Builder and JSON Array Builder
+:plugin-id: JSON_OBJECT_BUILDER, JSON_ARRAY_BUILDER
+:plugin-type: transform
+:description: Typed JSON object and array construction with JSON Pointer insertion.
+
+The JSON Object Builder Plugin provides two transforms for assembling JSON documents from Hop
+rows. Both transforms can emit a native `ValueMetaJson` value or serialized JSON text.
+
+== Description
+
+The JSON Object Builder creates a JSON object from field or literal mappings. It can also insert
+those mappings into an existing document at an RFC 6901 JSON Pointer. The JSON Array Builder
+aggregates field values or complete input rows into an array and supports the same insertion mode.
+
+Both transforms preserve input JSON values by copying them before editing. A result can replace an
+existing field in place, which allows a pipeline to build a document incrementally.
+
+== Object Builder
+
+The object builder supports the following mapping sources:
+
+* literal or field-based object keys
+* field or literal values
+* automatic or explicit type conversion
+* optional skipping of null and empty values
+* optional grouping by sorted input fields
+
+Value types are `AUTO`, `STRING`, `INTEGER`, `NUMBER`, `BIGNUMBER`, `BOOLEAN`, `JSON` and `NULL`.
+The `JSON` type parses a complete JSON value such as `{"href":"..."}` or `["data"]` instead of
+writing the value as an escaped string.
+
+== Array Builder
+
+The array builder accepts either a configured field value or the complete incoming row. Without
+grouping, all rows are emitted as one array and an empty create-mode input emits `[]`. Grouped
+input emits one array per group and must be sorted by the configured group fields. Null and empty
+elements can be omitted.
+
+== Options
+
+[.gui-mockup]
+----
++==============================================================================+
+| JSON Object Builder                                                         |
+|                                                                              |
+| Name                 [ Item base                                      ]     |
+| Mode                 [ Create new JSON object                         v ]    |
+| Output field         [ item_json                                      ]     |
+| Output type          [ JSON                                           v ]    |
+| JSON Pointer         [ /properties                                    ]     |
+|                                                                              |
+| Key source | Value source | Type | Skip when null                         |
+| id         | field        | AUTO | no                                    |
+| title      | field        | STRING | yes                                 |
+|                                                                              |
+|                                                          [ OK ] [ Cancel ]   |
++==============================================================================+
+----
+
+[cols="1,3,1",options="header"]
+|===
+|Option |Description |Default
+
+|Mode
+|Create a new object or insert mappings into an existing JSON document.
+|Create
+
+|Output field and type
+|Name and Hop type of the generated field: `JSON` or `STRING`.
+|`JSON`
+
+|Base JSON field
+|Input field containing the document in insert mode.
+|(empty)
+
+|JSON Pointer
+|RFC 6901 path of the target object. Missing object levels are created.
+|(empty, root)
+
+|Mappings
+|Key, value, type and null-skipping rules used to construct the object.
+|(none)
+
+|Group by fields
+|Sorted fields that define one output object per group.
+|(none)
+|===
+
+== JSON Pointer and parsing rules
+
+The pointer follows RFC 6901 escaping rules. Existing array elements can be addressed by index and
+`-` appends to an existing array. Only object levels are created automatically.
+
+JSON text must contain exactly one complete JSON value. Trailing whitespace is allowed, but a
+second value or other trailing content is rejected. A null or blank base field is an error in
+insert mode.
+
+== Examples
+
+* xref:../../examples/stac-item/stac-item.hpl[Build a STAC item with nested properties and dynamic assets]
+* xref:../../examples/links-array/links-array.hpl[Build a grouped links array]
+
+The examples are also the installed-plugin E2E scenarios. Their expected JSON documents are
+checked into `examples/*/expected/`.
+
+== Supported engines
+
+The plugin is tested with the `Local` Hop pipeline engine and Apache Hop 2.19.0. Remote execution
+requires the same plugin installation on the Hop server. Other engines are outside the verified
+test matrix.
+
+== Limitations
+
+* Grouped modes buffer one group and require sorted input, like `Enhanced JSON Output`.
+* JSON Schema validation is not part of this plugin.
+* Date and timestamp values use Hop's formatted string conversion.

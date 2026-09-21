@@ -1,0 +1,10 @@
+= JSON Object Builder Plugin
+:description: Apache Hop transforms for building and extending JSON objects and arrays.
+
+The JSON Object Builder Plugin adds typed JSON object and array construction to Apache Hop. It
+supports native JSON values, JSON text, JSON Pointer insertion and grouped row aggregation.
+
+* xref:transforms/json-object-builder.adoc[JSON Object Builder and JSON Array Builder transforms]
+
+Runnable user examples live in the repository under `examples/`. Installed-plugin scenarios are
+documented separately under `e2e/`.

@@ -11,6 +11,14 @@
   <name>Apache Hop JSON Object Builder Plugin</name>
   <description>Apache Hop transforms for building and extending JSON objects and arrays with JSON Pointer (RFC 6901) support.</description>
 
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/license/mit/</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <modules>
     <module>hop-json-object-builder-core</module>
     <module>hop-transform-json-object-builder</module>

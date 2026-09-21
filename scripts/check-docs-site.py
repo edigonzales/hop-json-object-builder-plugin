@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Check generated Biblios pages for broken local assets and missing content."""
+
+from html.parser import HTMLParser
+import json
+from pathlib import Path
+import sys
+from urllib.parse import unquote, urlsplit
+
+
+PAGES_BASE = "/hop-json-object-builder-plugin/"
+
+
+class Page(HTMLParser):
+    def __init__(self, text: str):
+        super().__init__()
+        self.ids: set[str] = set()
+        self.links: list[str] = []
+        self.feed(text)
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if values.get("id"):
+            self.ids.add(values["id"])
+        for key in ("href", "src"):
+            if values.get(key):
+                self.links.append(values[key])
+
+
+def check(root: Path) -> None:
+    pages = {path.resolve(): Page(path.read_text(encoding="utf-8")) for path in root.rglob("*.html")}
+    assert (root / "index.html").resolve() in pages, "Missing start page"
+    errors: list[str] = []
+
+    for path, page in pages.items():
+        text = path.read_text(encoding="utf-8")
+        if "Unresolved directive" in text or "include::" in text or "&lt;&lt;" in text:
+            errors.append(f"{path}: unresolved AsciiDoc reference/include")
+        for link in page.links:
+            url = urlsplit(link)
+            if url.scheme or url.netloc:
+                if url.scheme == "file":
+                    errors.append(f"{path}: local Git source leaked: {link}")
+                continue
+            local = unquote(url.path)
+            if local.startswith(PAGES_BASE):
+                target = root / local[len(PAGES_BASE) :]
+            elif local.startswith("/"):
+                target = root / local.lstrip("/")
+            else:
+                target = path.parent / local if local else path
+            if target.is_dir():
+                target /= "index.html"
+            target = target.resolve()
+            if not target.exists():
+                errors.append(f"{path.relative_to(root)}: missing {link}")
+            elif url.fragment and target in pages and unquote(url.fragment) not in pages[target].ids:
+                errors.append(f"{path.relative_to(root)}: missing anchor {link}")
+
+    handbook_candidates = [path for path in pages if "json-object-builder/main/index.html" in str(path)]
+    assert handbook_candidates, "Missing single-page handbook"
+    handbook_text = handbook_candidates[0].read_text(encoding="utf-8")
+    for term in ("JSON Object Builder", "JSON Array Builder", "JSON Pointer"):
+        assert term in handbook_text, f"Handbook lacks {term}"
+
+    styles = (root / "site-assets/styles.css").read_text(encoding="utf-8")
+    assert ".listingblock.gui-mockup pre" in styles, "Missing gui-mockup styles"
+
+    downloads = list(root.rglob("*.hpl"))
+    assert len(downloads) == 2, f"Expected 2 pipeline downloads, got {len(downloads)}"
+    search = list(root.rglob("*search*.json"))
+    assert search, "Missing search JSON"
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in search)
+    for term in ("JSON Object Builder", "JSON Array Builder", "JSON Pointer"):
+        assert term in combined, f"Search lacks {term}"
+    for path in search:
+        json.loads(path.read_text(encoding="utf-8"))
+
+    assert not errors, "\n".join(errors)
+    print(f"Site checks passed: {len(pages)} HTML pages, {len(downloads)} downloads, {len(search)} search files")
+
+
+if __name__ == "__main__":
+    check(Path(sys.argv[1]).resolve())

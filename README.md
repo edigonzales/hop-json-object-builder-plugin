@@ -1,219 +1,156 @@
 # hop-json-object-builder-plugin
 
-Apache Hop transform plugin that adds generic, practical JSON building blocks: the
-**JSON Object Builder** and the **JSON Array Builder**. Both work with real JSON values
-(Hop `ValueMetaJson`) and JSON text, use Jackson and support JSON Pointer (RFC 6901)
-navigation for inserting fragments into existing documents.
+Apache Hop transform plugin that adds generic JSON Object Builder and JSON Array Builder
+transforms for typed JSON construction, JSON Pointer insertion and grouped row aggregation.
 
-## Why this plugin exists
+## Features
 
-Hop already ships strong JSON transforms. `JSON Input` reads JSON into rows, `JSON Output`
-writes rows to JSON files and `Enhanced JSON Output` groups rows into arrays and nested
-objects. What is missing for object-oriented payloads such as STAC items, GeoJSON, OpenAPI
-requests or JSON configuration is:
-
-- **dynamic object keys**: `"assets": { "geoparquet": { ... }, "interlis": { ... } }` where
-  the key names come from a field of each row
-- **inserting into an existing document** at a JSON Pointer (`/properties`, `/assets`)
-  while creating missing object levels
-- a mapping-driven, type-safe way to distinguish `"42"` (string) from `42` (number) and
-  from `{...}` (JSON fragment) without JavaScript
-
-The plugin stays generic on purpose: it is not a STAC writer. Any JSON document that is
-assembled from typed rows can be built with it.
-
-## Transforms
-
-Both transforms appear in the **JSON** category.
+Both transforms appear in Hop's **JSON** category and work with native Hop JSON values as well
+as JSON text.
 
 | Transform | Plugin ID | Purpose |
 |---|---|---|
-| JSON Object Builder | `JSON_OBJECT_BUILDER` | Creates a new JSON object from typed key/value mappings or inserts the mappings into an existing JSON document at a JSON Pointer. |
-| JSON Array Builder | `JSON_ARRAY_BUILDER` | Aggregates rows into a JSON array, optionally grouped by key fields and optionally inserted into an existing JSON document at a JSON Pointer. |
+| JSON Object Builder | `JSON_OBJECT_BUILDER` | Creates a new JSON object from typed mappings or inserts mappings into an existing JSON document at a JSON Pointer. |
+| JSON Array Builder | `JSON_ARRAY_BUILDER` | Aggregates rows into a JSON array, optionally grouped by key fields and optionally inserted into an existing JSON document. |
+
+The plugin is useful for object-oriented payloads such as STAC items, GeoJSON, OpenAPI requests
+and JSON configuration. It supports dynamic object keys, missing object levels along JSON Pointer
+paths, and type-safe conversion without JavaScript.
 
 ### JSON Object Builder
 
-| Option | Meaning |
-|---|---|
-| Output field / output type | Field name and Hop type of the result: `JSON` (native `JsonNode`) or `STRING` (serialized JSON, compact or pretty printed). |
-| Source | `Create new JSON object` or `Insert into existing JSON object`. |
-| Base JSON field / JSON Pointer | In insert mode: the input field containing the base document (JSON or text) and the RFC 6901 pointer of the target object. Missing object levels are created. An empty pointer targets the root. |
-| Field mappings | One row per key/value pair: key (literal or field), value (field or literal), value type, and "skip when null". |
-| Group by fields | Optional. When set, all rows of a group are merged into **one** JSON object per group; the output row contains the group by fields and the JSON field. Dynamic keys across multiple rows require this mode. |
+The transform can create a new object or insert mappings into an existing JSON document. A mapping
+can use a literal or field-based key, a field or literal value, an explicit value type and the
+`skip when null` option. Optional grouping merges rows into one object per group, which enables
+dynamic keys across multiple rows.
 
-Value types: `AUTO` uses the input field type (String, Integer, Number, Big number,
-Boolean, JSON, Date/Timestamp as string). `STRING`, `INTEGER`, `NUMBER`, `BIGNUMBER`,
-`BOOLEAN`, `JSON` and `NULL` force a conversion. `JSON` parses text such as
-`["data"]`, `{"href": "..."}` or `null` into real JSON structures instead of escaped
-strings.
-
-Native JSON base documents and fragments are copied before use. Building or extending a
-document does not modify its input JSON values or documents already emitted. Mapping the
-base field into the result inserts an independent copy of the original document.
-
-If the output field name equals an existing input field name, the field is replaced in
-place (including its type). This allows FME-like chains: `item_json` is built, extended
-with `/properties`, extended with `/assets` — the document grows in one field.
+Supported value types include `AUTO`, `STRING`, `INTEGER`, `NUMBER`, `BIGNUMBER`, `BOOLEAN`,
+`JSON` and `NULL`. JSON literals are parsed into real JSON structures rather than escaped strings.
 
 ### JSON Array Builder
 
-| Option | Meaning |
-|---|---|
-| Output field / output type | As above. |
-| Element | `Field value` (with value type) or `Whole input row as JSON object`. |
-| Target | `Insert into existing JSON object` with base JSON field and JSON Pointer; otherwise the array itself is emitted. |
-| Group by fields | Optional. One array per group; the output row contains the group by fields and the array field. Without grouping all rows become a single array, emitted once at the end of the stream (an empty stream produces `[]`). |
-| Skip null elements | Null and empty elements (or field values in whole-row mode) are omitted. |
+The transform emits either a field value or the whole input row as a JSON array element. It can
+aggregate all rows into one array or emit one array per sorted group. Null and empty elements can
+be skipped, and the resulting array can be inserted at a JSON Pointer.
 
-### Null and empty handling
+### Semantics and limitations
 
-- `skip when null` / `Skip null elements` skip Java `null`, JSON null/missing nodes and
-  empty strings, including explicit `NULL` mappings and the JSON literal `null`. Empty
-  values are skipped before forced conversions, including numeric conversions. In
-  whole-row mode the same rule applies to individual fields.
-- Without the flag, null values are retained and the configured type conversion applies;
-  `AUTO`/`STRING` preserve empty strings. Whitespace-only strings are not generally
-  treated as empty; the existing JSON and numeric conversions still apply.
-- In insert mode a null or blank base JSON field is an error: the transform never
-  invents a document silently.
+- Native JSON documents and fragments are copied before use; inputs and previously emitted rows are
+  not mutated.
+- JSON text must contain exactly one complete JSON value; trailing whitespace is allowed.
+- Insert mode rejects a null or blank base JSON field instead of inventing a document.
+- Grouped modes follow the `Enhanced JSON Output` model and require input sorted by the group fields.
+- Only objects are created automatically along JSON Pointer paths; existing array elements can be
+  addressed by index and `-` appends to an existing array.
+- There is no JSON Schema validation; that remains a separate concern.
 
-JSON text must contain exactly one complete JSON value. Trailing whitespace is allowed;
-a second value or trailing non-JSON content is rejected for base fields, fragments and literals.
+## Requirements
 
-With empty input, the array builder emits one `[]` in ungrouped create mode. Ungrouped
-insert mode fails because no base document is available. Grouped modes emit no rows when
-there are no groups. Configuration is still validated for empty input.
+- Apache Hop 2.19.0
+- Java 21 or newer
+- Maven for building from source
 
-Dialog edits are committed only after successful validation. Cancelling after a failed
-save preserves the original configuration, including when the transform was being renamed.
+Jackson is provided by Apache Hop at runtime and is not bundled in the plugin ZIP.
 
-### Grouping rules
+## Install
 
-Grouped modes follow the `Enhanced JSON Output` model: the input must be **sorted by the
-group by fields**, otherwise rows of the same group are emitted as separate documents.
-The transforms log a hint on startup; the shipped example pipelines use `Sort rows`
-before grouped transforms. Grouped output rows contain only the group by fields and the
-JSON field. Group field names can contain Hop variables; resolved names are used for
-validation and processing in both builders.
+Download the published ZIP from the Maven snapshot repository:
 
-## Modules
-
-- `./hop-json-object-builder-core` — Jackson-based JSON Pointer editing, literal/value
-  conversion and serialization; no Hop dependency.
-- `./hop-transform-json-object-builder` — both transforms with metadata, dialogs, icons
-  and tests.
-- `./assemblies/assemblies-hop-json-object-builder` — installation ZIP for
-  `plugins/transforms/hop-json-object-builder`.
-
-## Build
-
-```bash
-mvn clean verify
+```text
+https://jars.interlis.guru/snapshots/ch/so/agi/hop-json-object-builder-plugin/0.1.0-SNAPSHOT/
 ```
 
-Build prerequisites: Java 21 (Java 25 is covered by the compatibility matrix) and Maven.
-Apache Hop `2.19.0` is resolved from Maven Central; Jackson comes from Hop at runtime and
-is not bundled.
-
-## Produced artifacts
-
-- Core JAR: `hop-json-object-builder-core/target/hop-json-object-builder-core-<version>.jar`
-- Transform JAR: `hop-transform-json-object-builder/target/hop-transform-json-object-builder-<version>.jar`
-- Plugin ZIP: `assemblies/assemblies-hop-json-object-builder/target/hop-json-object-builder-plugin-<version>.zip`
-
-The ZIP installs to `plugins/transforms/hop-json-object-builder` and contains both
-transforms (one plugin JAR) plus the core JAR under `lib/`.
-
-## Install in Hop
+Extract it into the Apache Hop installation:
 
 ```bash
-unzip -o assemblies/assemblies-hop-json-object-builder/target/hop-json-object-builder-plugin-<version>.zip -d "$HOP_HOME"
+unzip -o hop-json-object-builder-plugin-<version>.zip -d "$HOP_HOME"
 ```
 
-Fast local sync:
+The ZIP installs to `plugins/transforms/hop-json-object-builder`. For local development, sync the
+locally built plugin with:
 
 ```bash
 ./scripts/dev-sync-hop-plugin.sh "$HOP_HOME"
 ```
 
-## Examples
+## Documentation
 
-The [`examples`](examples/README.md) directory contains two runnable pipelines that are
-also the installed-Hop E2E tests:
+- Rendered handbook: <https://edigonzales.github.io/hop-json-object-builder-plugin/>
+- Canonical source: [`docs/master.adoc`](docs/master.adoc)
+- Transform reference: [`docs/transforms/json-object-builder.adoc`](docs/transforms/json-object-builder.adoc)
+- User examples: [`examples/README.md`](examples/README.md)
+- Installed-plugin scenarios: [`e2e/README.md`](e2e/README.md)
+- Biblios configuration: [`docs/biblios.yml`](docs/biblios.yml)
 
-- `examples/stac-item/stac-item.hpl` — one row per asset; builds a STAC item with
-  nested `properties`, a real `bbox`/`geometry` and a dynamic `assets` object.
-- `examples/links-array/links-array.hpl` — one row per link; builds a grouped JSON array
-  and demonstrates `skip when null` for a link without media type.
-
-```bash
-"$HOP_HOME/hop-run.sh" -r local -f examples/stac-item/stac-item.hpl -p OUTPUT_DIR=/tmp
-```
-
-The installed-plugin E2E runs both pipelines and compares the produced JSON documents
-with the checked-in expected documents:
+Build and preview the handbook locally:
 
 ```bash
-python3 scripts/run-e2e.py --hop-home "$HOP_HOME" --plugin-zip path/to/hop-json-object-builder-plugin-<version>.zip
+python3 scripts/build-docs-site.py --serve
 ```
+
+## Build and development
+
+Build and test the complete project:
+
+```bash
+mvn -U -B -ntp clean verify
+```
+
+Run tests without packaging:
+
+```bash
+mvn -U -B -ntp clean test
+```
+
+Validate the installation ZIP and repository contract:
+
+```bash
+python3 scripts/verify-package.py
+python3 .ci/hop-plugin-ci/scripts/check-plugin-repository.py --profile multi-module-suite
+```
+
+The installed-plugin E2E test requires a clean Apache Hop 2.19.0 client:
+
+```bash
+python3 scripts/run-e2e.py --hop-home "$HOP_HOME/hop" --plugin-zip <canonical ZIP>
+```
+
+The Maven test suite also loads the example pipelines to keep their XML and transform metadata
+in sync. Dialog tests use the test-only `hop-ui-rcp` dependency and require a desktop display or
+Xvfb on headless Linux.
+
+## Modules and artifacts
+
+- `hop-json-object-builder-core`: Jackson-based JSON Pointer editing, conversion and serialization
+  without a Hop dependency.
+- `hop-transform-json-object-builder`: both transforms, metadata, dialogs, icons and tests.
+- `assemblies/assemblies-hop-json-object-builder`: installable plugin ZIP.
+
+The build produces:
+
+- `hop-json-object-builder-core/target/hop-json-object-builder-core-<version>.jar`
+- `hop-transform-json-object-builder/target/hop-transform-json-object-builder-<version>.jar`
+- `assemblies/assemblies-hop-json-object-builder/target/hop-json-object-builder-plugin-<version>.zip`
+
+The ZIP contains one transform JAR and the core JAR under `lib/`.
 
 ## CI and publication
 
-GitHub Actions uses the shared `edigonzales/hop-plugin-ci` contract. The matrix runs Java
-21 and 25 on Ubuntu, macOS and Windows. Ubuntu with Java 21 is the canonical run: it
-executes `clean verify`, validates the installation ZIP with `scripts/verify-package.py`
-and creates the only publishable bundle. A separate job installs the canonical ZIP into a
-clean Apache Hop 2.19.0 client and runs `scripts/run-e2e.py`. A push to `main` publishes
-the verified snapshot without rebuilding it.
+GitHub Actions tests Java 21 and 25 on Ubuntu, macOS and Windows. Ubuntu with Java 21 is the
+canonical build: it runs `clean verify`, validates the ZIP with `scripts/verify-package.py`,
+checks the repository contract and creates the only publishable bundle. A separate job installs
+that exact canonical ZIP into a clean Apache Hop 2.19.0 client and runs both example pipelines.
 
-The published Maven ZIP coordinate is:
+Pushes to `main` publish the verified snapshot without rebuilding it:
 
 ```text
 ch.so.agi:hop-json-object-builder-plugin:0.1.0-SNAPSHOT
 ```
 
-Publication uses `INTERLIS_MAVEN_USERNAME` / `INTERLIS_MAVEN_TOKEN` and the shared
-`hop-plugin-ci` workflow.
-
-## Tests
-
-The automated test suite covers:
-
-- JSON Pointer editing: creating missing object levels, overwriting, dynamic keys,
-  array navigation, `-` append, escaping, error cases
-- literal conversion for all value types, including JSON literals
-- transform metadata defaults, clone behavior, XML roundtrip and validation remarks
-- runtime behavior: row-wise object creation, pointer insertion, grouped dynamic keys,
-  in-place replacement, skip-when-null/empty, invalid base JSON, array aggregation with
-  and without grouping, whole-row elements, array insertion at a pointer
-- regression cases for native JSON isolation, strict parsing, null skipping, empty streams
-  and variable-based grouping
-- SWT dialog validation, cancellation and successful save, including renaming
-- plugin contract (IDs, category, dialog classes, packaged icons)
-- loading the shipped example pipelines with Hop 2.19 to keep them in sync
-- the installed-plugin E2E in CI
-
-Dialog tests use the test-only `hop-ui-rcp` dependency and require a desktop display
-(or Xvfb on headless Linux). It is not included in the plugin ZIP.
-
-Run tests only:
-
-```bash
-mvn test
-```
-
-## Limitations
-
-- Grouped modes buffer the rows of a group and require sorted input (same as
-  `Enhanced JSON Output`).
-- Only objects are created automatically along JSON Pointers; existing array elements can
-  be addressed by index, and `-` appends to an existing array.
-- JSON Pointer insertion replaces an existing value at the target key.
-- There is no JSON Schema validation in this plugin; validation of the produced document
-  is a separate concern.
-- Element/row conversion uses the Hop value type; explicit Date/Timestamp JSON types are
-  not offered (they are written as formatted strings).
+Publication uses `https://jars.interlis.guru/snapshots/` and maps the protected repository secrets
+`INTERLIS_MAVEN_USERNAME` and `INTERLIS_MAVEN_TOKEN` to the shared `hop-plugin-ci` workflow.
+Pull requests publish neither Maven artifacts nor documentation pages.
 
 ## License
 
-[MIT](LICENSE).
+See [LICENSE](LICENSE).
