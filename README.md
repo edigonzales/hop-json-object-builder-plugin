@@ -102,11 +102,10 @@ Run tests without packaging:
 mvn -U -B -ntp clean test
 ```
 
-Validate the installation ZIP and repository contract:
+Validate the installation ZIP:
 
 ```bash
 python3 scripts/verify-package.py
-python3 .ci/hop-plugin-ci/scripts/check-plugin-repository.py --profile multi-module-suite
 ```
 
 The installed-plugin E2E test requires a clean Apache Hop 2.19.0 client:
@@ -137,8 +136,8 @@ The ZIP contains one transform JAR and the core JAR under `lib/`.
 ## CI and publication
 
 GitHub Actions tests Java 21 and 25 on Ubuntu, macOS and Windows. Ubuntu with Java 21 is the
-canonical build: it runs `clean verify`, validates the ZIP with `scripts/verify-package.py`,
-checks the repository contract and creates the only publishable bundle. A separate job installs
+canonical build: it runs `clean verify`, validates the ZIP with `scripts/verify-package.py` and
+uploads the tested ZIP for publication. A separate job installs
 that exact canonical ZIP into a clean Apache Hop 2.19.0 client and runs both example pipelines.
 
 Pushes to `main` publish the verified snapshot without rebuilding it:
