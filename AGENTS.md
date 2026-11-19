@@ -4,8 +4,7 @@
 
 Before changing pipelines or test setup, read the
 [shared CI contract](https://github.com/edigonzales/hop-plugin-ci/blob/main/docs/ci-contract.md).
-Use the interfaces at this repo's workflow and helper revisions (`main`); the documentation
-link follows main and does not upgrade those revisions.
+Use the workflow and helper revision pinned in `.github/workflows/verify.yml`.
 
 Run commands from the repository root.
 
