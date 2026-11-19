@@ -4,10 +4,7 @@
 
 Before changing pipelines or test setup, read the
 [shared CI contract](https://github.com/edigonzales/hop-plugin-ci/blob/main/docs/ci-contract.md).
-Also read the
-[plugin repository contract](https://github.com/edigonzales/hop-plugin-ci/blob/main/docs/plugin-repository-contract.md).
-Use the interfaces at this repo's workflow and helper revisions (`main`); the documentation
-link follows main and does not upgrade those revisions.
+Use the workflow and helper revision pinned in `.github/workflows/verify.yml`.
 
 Run commands from the repository root.
 
@@ -22,8 +19,6 @@ Exact commands:
 - Canonical build: `mvn -U -B -ntp clean verify`
 - Compatibility build (other OS/Java cells): `mvn -U -B -ntp clean test`
 - Package check (canonical only): `python3 scripts/verify-package.py`
-- Repository contract check (canonical only):
-  `python3 .ci/hop-plugin-ci/scripts/check-plugin-repository.py --profile multi-module-suite`
 - Documentation site build and check: `python3 scripts/build-docs-site.py`
 - Installed E2E (after extracting the canonical ZIP into a clean Hop 2.19.0 client):
   `python3 scripts/run-e2e.py --hop-home "$HOP_HOME/hop" --plugin-zip <canonical ZIP>`
@@ -34,9 +29,9 @@ The canonical ZIP is
 and installs to `plugins/transforms/hop-json-object-builder`.
 
 Workflow layout: `.github/workflows/ci.yml` runs `lint` (actionlint), `verify`
-(`verify.yml` delegating to `hop-plugin-ci/plugin-verify.yml`), `installed-e2e` (clean Hop
+(`verify.yml` delegating to `hop-plugin-ci/verify.yml`), `installed-e2e` (clean Hop
 2.19.0 client plus the canonical ZIP) and `publish` (snapshot via
-`hop-plugin-ci/plugin-publish.yml` on `main`).
+`hop-plugin-ci/publish.yml` on `main`).
 `.github/workflows/biblios-docs.yml` builds the documentation site for pull requests and
 deploys it from `main`; pull requests publish no Maven or Pages artifacts.
 

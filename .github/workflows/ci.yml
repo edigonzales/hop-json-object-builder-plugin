@@ -35,7 +35,7 @@ jobs:
           java-version: '21'
 
       - name: Download verified plugin bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: hop-json-object-builder-plugin-canonical
           path: .ci/plugin
@@ -65,16 +65,10 @@ jobs:
   publish:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [lint, verify, installed-e2e]
-    uses: edigonzales/hop-plugin-ci/.github/workflows/plugin-publish.yml@main
+    uses: edigonzales/hop-plugin-ci/.github/workflows/publish.yml@f0a1eec368cb8c5d2592086b26393a6fc3916ad1
     with:
-      ci-ref: main
       repository-kind: snapshot
       verified-artifact-name: hop-json-object-builder-plugin-canonical
-      pom-file: pom.xml
-      zip-descriptors: >-
-        [{"artifactId":"hop-json-object-builder-plugin","zipGlob":"assemblies/assemblies-hop-json-object-builder/target/hop-json-object-builder-plugin-*.zip","pluginRoot":"plugins/transforms/hop-json-object-builder"}]
-      group-id: ch.so.agi
-      hop-version: 2.19.0
     secrets:
       MAVEN_USERNAME: ${{ secrets.INTERLIS_MAVEN_USERNAME }}
       MAVEN_PASSWORD: ${{ secrets.INTERLIS_MAVEN_TOKEN }}

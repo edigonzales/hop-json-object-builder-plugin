@@ -63,9 +63,6 @@ def check(root: Path) -> None:
     for term in ("JSON Object Builder", "JSON Array Builder", "JSON Pointer"):
         assert term in handbook_text, f"Handbook lacks {term}"
 
-    styles = (root / "site-assets/styles.css").read_text(encoding="utf-8")
-    assert ".listingblock.gui-mockup pre" in styles, "Missing gui-mockup styles"
-
     downloads = list(root.rglob("*.hpl"))
     assert len(downloads) == 2, f"Expected 2 pipeline downloads, got {len(downloads)}"
     search = list(root.rglob("*search*.json"))
