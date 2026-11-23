@@ -1,5 +1,9 @@
 package ch.so.agi.hop.json.builder.transform;
 
+import ch.so.agi.hop.commons.core.SourceMode;
+import ch.so.agi.hop.commons.core.ValueOrField;
+import ch.so.agi.hop.commons.ui.EditorKind;
+import ch.so.agi.hop.commons.ui.ValueOrFieldControl;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,13 +29,12 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 public class JsonObjectBuilderDialog extends BaseTransformDialog {
-
-  private static final String COMBO_NO = "N";
-  private static final String COMBO_YES = "Y";
 
   private final JsonObjectBuilderMeta input;
 
@@ -44,9 +47,15 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
   private Text wJsonPointer;
   private Label wlBaseJsonField;
   private Label wlJsonPointer;
-  private TableView wMappings;
+  private Table wMappings;
+  private ValueOrFieldControl wMappingKey;
+  private ValueOrFieldControl wMappingValue;
+  private Combo wMappingType;
+  private Button wSkipWhenNull;
+  private Button wRemoveMapping;
+  private Button wMoveMappingUp;
+  private Button wMoveMappingDown;
   private TableView wGroupBy;
-  private ColumnInfo[] mappingColumns;
   private final TransformMeta originalTransform;
 
   private String[] fieldNames = new String[0];
@@ -127,34 +136,7 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
     wJsonPointer.setLayoutData(fill());
     wJsonPointer.addModifyListener(lsMod);
 
-    Label wlMappings = new Label(content, SWT.NONE);
-    wlMappings.setText("Field mappings (key/value pairs, dynamic keys are read from fields):");
-    wlMappings.setLayoutData(span(2));
-    PropsUi.setLook(wlMappings);
-
-    mappingColumns =
-        new ColumnInfo[] {
-          new ColumnInfo("Key / key field", ColumnInfo.COLUMN_TYPE_CCOMBO, fieldNames, false),
-          new ColumnInfo("Key source", ColumnInfo.COLUMN_TYPE_CCOMBO, JsonKeySource.descriptions()),
-          new ColumnInfo("Value / value field", ColumnInfo.COLUMN_TYPE_CCOMBO, fieldNames, false),
-          new ColumnInfo(
-              "Value source", ColumnInfo.COLUMN_TYPE_CCOMBO, JsonValueSource.descriptions()),
-          new ColumnInfo("Type", ColumnInfo.COLUMN_TYPE_CCOMBO, JsonValueType.descriptions()),
-          new ColumnInfo(
-              "Skip when null", ColumnInfo.COLUMN_TYPE_CCOMBO, new String[] {COMBO_NO, COMBO_YES})
-        };
-    wMappings =
-        new TableView(
-            variables,
-            content,
-            SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
-            mappingColumns,
-            Math.max(1, input.getMappings().size()),
-            lsMod,
-            props);
-    GridData mappingsData = new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1);
-    mappingsData.heightHint = 140;
-    wMappings.setLayoutData(mappingsData);
+    createMappingEditor(content);
 
     Label wlGroupBy = new Label(content, SWT.NONE);
     wlGroupBy.setText("Group by fields (optional, merges rows into one JSON object per group):");
@@ -187,6 +169,197 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
     focusTransformName();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
     return transformName;
+  }
+
+  private void createMappingEditor(Composite content) {
+    Label label = new Label(content, SWT.NONE);
+    label.setText("Field mappings");
+    label.setLayoutData(span(2));
+    PropsUi.setLook(label);
+
+    wMappings = new Table(content, SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI);
+    wMappings.setHeaderVisible(true);
+    wMappings.setLinesVisible(true);
+    String[] headers = {"Key", "Value", "Type", "Skip when null"};
+    int[] widths = {180, 180, 105, 120};
+    for (int i = 0; i < headers.length; i++) {
+      TableColumn column = new TableColumn(wMappings, SWT.LEFT);
+      column.setText(headers[i]);
+      column.setWidth(widths[i]);
+    }
+    GridData tableData = new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1);
+    tableData.heightHint = 120;
+    wMappings.setLayoutData(tableData);
+    PropsUi.setLook(wMappings);
+    wMappings.addListener(SWT.Selection, event -> loadSelectedMapping());
+
+    Composite buttons = new Composite(content, SWT.NONE);
+    GridLayout buttonsLayout = new GridLayout(4, false);
+    buttonsLayout.marginHeight = 0;
+    buttonsLayout.marginWidth = 0;
+    buttons.setLayout(buttonsLayout);
+    buttons.setLayoutData(span(2));
+    PropsUi.setLook(buttons);
+    Button add = new Button(buttons, SWT.PUSH);
+    add.setText("Add");
+    add.addListener(SWT.Selection, event -> {
+      addMappingRow(new JsonMapping());
+      wMappings.setSelection(wMappings.getItemCount() - 1);
+      wMappings.showSelection();
+      loadSelectedMapping();
+      wMappingKey.setFocus();
+      markChanged();
+    });
+    wRemoveMapping = new Button(buttons, SWT.PUSH);
+    wRemoveMapping.setText("Remove");
+    wRemoveMapping.addListener(SWT.Selection, event -> {
+      int[] indices = wMappings.getSelectionIndices();
+      if (indices.length == 0) {
+        return;
+      }
+      wMappings.remove(indices);
+      wMappings.setSelection(Math.min(indices[0], wMappings.getItemCount() - 1));
+      loadSelectedMapping();
+      markChanged();
+    });
+    wMoveMappingUp = new Button(buttons, SWT.PUSH);
+    wMoveMappingUp.setText("Up");
+    wMoveMappingUp.addListener(SWT.Selection, event -> moveMapping(-1));
+    wMoveMappingDown = new Button(buttons, SWT.PUSH);
+    wMoveMappingDown.setText("Down");
+    wMoveMappingDown.addListener(SWT.Selection, event -> moveMapping(1));
+
+    addLabel(content, "Key");
+    wMappingKey = ValueOrFieldControl.builder(content, variables)
+        .editor(EditorKind.TEXT)
+        .fieldProvider(() -> fieldNames)
+        .onChange(() -> {
+          TableItem item = selectedMappingRow();
+          if (item != null) {
+            JsonMapping mapping = (JsonMapping) item.getData();
+            ValueOrField key = wMappingKey.getValue();
+            mapping.setKeySource(key.mode());
+            mapping.setKey(key.configuredValue());
+            mapping.setKeyField(key.fieldName());
+            mappingChanged(item);
+          }
+        })
+        .build();
+    wMappingKey.setLayoutData(fill());
+
+    addLabel(content, "Value");
+    wMappingValue = ValueOrFieldControl.builder(content, variables)
+        .editor(EditorKind.TEXT)
+        .fieldProvider(() -> fieldNames)
+        .onChange(() -> {
+          TableItem item = selectedMappingRow();
+          if (item != null) {
+            JsonMapping mapping = (JsonMapping) item.getData();
+            ValueOrField value = wMappingValue.getValue();
+            mapping.setValueSource(value.mode());
+            mapping.setValue(value.configuredValue());
+            mapping.setValueField(value.fieldName());
+            mappingChanged(item);
+          }
+        })
+        .build();
+    wMappingValue.setLayoutData(fill());
+
+    addLabel(content, "Value type");
+    Composite options = new Composite(content, SWT.NONE);
+    GridLayout optionsLayout = new GridLayout(2, false);
+    optionsLayout.marginWidth = 0;
+    optionsLayout.marginHeight = 0;
+    options.setLayout(optionsLayout);
+    options.setLayoutData(fill());
+    PropsUi.setLook(options);
+    wMappingType = new Combo(options, SWT.DROP_DOWN | SWT.READ_ONLY);
+    wMappingType.setItems(JsonValueType.descriptions());
+    wMappingType.addListener(SWT.Selection, event -> {
+      TableItem item = selectedMappingRow();
+      if (item != null) {
+        ((JsonMapping) item.getData()).setValueType(
+            JsonValueType.lookupDescription(wMappingType.getText(), JsonValueType.AUTO));
+        mappingChanged(item);
+      }
+    });
+    wSkipWhenNull = new Button(options, SWT.CHECK);
+    wSkipWhenNull.setText("Skip when null");
+    wSkipWhenNull.addListener(SWT.Selection, event -> {
+      TableItem item = selectedMappingRow();
+      if (item != null) {
+        ((JsonMapping) item.getData()).setSkipIfNull(wSkipWhenNull.getSelection());
+        mappingChanged(item);
+      }
+    });
+  }
+
+  private void addMappingRow(JsonMapping mapping) {
+    TableItem item = new TableItem(wMappings, SWT.NONE);
+    item.setData(mapping);
+    showMapping(item);
+  }
+
+  private void showMapping(TableItem item) {
+    JsonMapping mapping = (JsonMapping) item.getData();
+    item.setText(new String[] {
+      mapping.getKeySource() == SourceMode.FIELD
+          ? "Field: " + nvl(mapping.getKeyField()) : nvl(mapping.getKey()),
+      mapping.getValueSource() == SourceMode.FIELD
+          ? "Field: " + nvl(mapping.getValueField()) : nvl(mapping.getValue()),
+      mapping.getValueType().getDescription(),
+      mapping.isSkipIfNull() ? "Y" : "N"
+    });
+  }
+
+  private void mappingChanged(TableItem item) {
+    showMapping(item);
+    markChanged();
+  }
+
+  private TableItem selectedMappingRow() {
+    return wMappings.getSelectionCount() == 1
+        ? wMappings.getItem(wMappings.getSelectionIndex())
+        : null;
+  }
+
+  private void loadSelectedMapping() {
+    TableItem item = selectedMappingRow();
+    JsonMapping mapping = item == null ? new JsonMapping() : (JsonMapping) item.getData();
+    wMappingKey.setValue(
+        new ValueOrField(mapping.getKeySource(), mapping.getKey(), mapping.getKeyField()));
+    wMappingValue.setValue(
+        new ValueOrField(mapping.getValueSource(), mapping.getValue(), mapping.getValueField()));
+    wMappingType.setText(mapping.getValueType().getDescription());
+    wSkipWhenNull.setSelection(mapping.isSkipIfNull());
+
+    boolean selected = item != null;
+    wMappingKey.setEnabled(selected);
+    wMappingValue.setEnabled(selected);
+    wMappingType.setEnabled(selected);
+    wSkipWhenNull.setEnabled(selected);
+    wRemoveMapping.setEnabled(wMappings.getSelectionCount() > 0);
+    wMoveMappingUp.setEnabled(selected && wMappings.getSelectionIndex() > 0);
+    wMoveMappingDown.setEnabled(
+        selected && wMappings.getSelectionIndex() < wMappings.getItemCount() - 1);
+  }
+
+  private void moveMapping(int delta) {
+    TableItem current = selectedMappingRow();
+    int destination = wMappings.getSelectionIndex() + delta;
+    if (current == null || destination < 0 || destination >= wMappings.getItemCount()) {
+      return;
+    }
+    TableItem adjacent = wMappings.getItem(destination);
+    Object mapping = current.getData();
+    current.setData(adjacent.getData());
+    adjacent.setData(mapping);
+    showMapping(current);
+    showMapping(adjacent);
+    wMappings.setSelection(destination);
+    wMappings.showSelection();
+    loadSelectedMapping();
+    markChanged();
   }
 
   private void loadFieldNames() {
@@ -223,27 +396,11 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
     wBaseJsonField.setText(input.getBaseJsonField() == null ? "" : input.getBaseJsonField());
     wJsonPointer.setText(input.getJsonPointer() == null ? "" : input.getJsonPointer());
 
-    for (int i = 0; i < input.getMappings().size(); i++) {
-      JsonMapping mapping = input.getMappings().get(i);
-      TableItem item = wMappings.table.getItem(i);
-      int column = 1;
-      item.setText(
-          column++,
-          mapping.getKeySource() == JsonKeySource.LITERAL
-              ? nvl(mapping.getKey())
-              : nvl(mapping.getKeyField()));
-      item.setText(column++, mapping.getKeySource().getDescription());
-      item.setText(
-          column++,
-          mapping.getValueSource() == JsonValueSource.LITERAL
-              ? nvl(mapping.getValue())
-              : nvl(mapping.getValueField()));
-      item.setText(column++, mapping.getValueSource().getDescription());
-      item.setText(column++, mapping.getValueType().getDescription());
-      item.setText(column, mapping.isSkipIfNull() ? COMBO_YES : COMBO_NO);
+    for (JsonMapping mapping : input.getMappings()) {
+      addMappingRow(mapping.clone());
     }
-    wMappings.setRowNums();
-    wMappings.optWidth(true);
+    wMappings.setSelection(0);
+    loadSelectedMapping();
 
     for (int i = 0; i < input.getGroupByFields().size(); i++) {
       TableItem item = wGroupBy.table.getItem(i);
@@ -285,28 +442,14 @@ public class JsonObjectBuilderDialog extends BaseTransformDialog {
     candidate.setJsonPointer(wJsonPointer.getText());
 
     candidate.getMappings().clear();
-    for (TableItem item : wMappings.getNonEmptyItems()) {
-      String keyText = item.getText(1);
-      String valueText = item.getText(3);
-      if (Utils.isEmpty(keyText) && Utils.isEmpty(valueText)) {
+    for (TableItem item : wMappings.getItems()) {
+      JsonMapping mapping = (JsonMapping) item.getData();
+      if (Utils.isEmpty(mapping.getKey())
+          && Utils.isEmpty(mapping.getKeyField())
+          && Utils.isEmpty(mapping.getValue())
+          && Utils.isEmpty(mapping.getValueField())) {
         continue;
       }
-      JsonMapping mapping = new JsonMapping();
-      mapping.setKeySource(JsonKeySource.lookupDescription(item.getText(2), JsonKeySource.LITERAL));
-      if (mapping.getKeySource() == JsonKeySource.LITERAL) {
-        mapping.setKey(keyText);
-      } else {
-        mapping.setKeyField(keyText);
-      }
-      mapping.setValueSource(
-          JsonValueSource.lookupDescription(item.getText(4), JsonValueSource.FIELD));
-      if (mapping.getValueSource() == JsonValueSource.LITERAL) {
-        mapping.setValue(valueText);
-      } else {
-        mapping.setValueField(valueText);
-      }
-      mapping.setValueType(JsonValueType.lookupDescription(item.getText(5), JsonValueType.AUTO));
-      mapping.setSkipIfNull(COMBO_YES.equalsIgnoreCase(item.getText(6)));
       candidate.getMappings().add(mapping);
     }
 

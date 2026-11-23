@@ -3,6 +3,7 @@ package ch.so.agi.hop.json.builder.transform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
@@ -46,7 +47,7 @@ class JsonObjectBuilderRuntimeTest {
     meta.getMappings().add(fieldMapping("payload", "payload", JsonValueType.JSON));
     JsonMapping roles = new JsonMapping();
     roles.setKey("roles");
-    roles.setValueSource(JsonValueSource.LITERAL);
+    roles.setValueSource(SourceMode.CONFIGURED);
     roles.setValue("[\"data\"]");
     roles.setValueType(JsonValueType.JSON);
     meta.getMappings().add(roles);
@@ -116,9 +117,9 @@ class JsonObjectBuilderRuntimeTest {
     meta.getGroupByFields().add("item_id");
 
     JsonMapping mapping = new JsonMapping();
-    mapping.setKeySource(JsonKeySource.FIELD);
+    mapping.setKeySource(SourceMode.FIELD);
     mapping.setKeyField("asset_key");
-    mapping.setValueSource(JsonValueSource.FIELD);
+    mapping.setValueSource(SourceMode.FIELD);
     mapping.setValueField("asset_json");
     mapping.setValueType(JsonValueType.JSON);
     meta.getMappings().add(mapping);
@@ -289,7 +290,7 @@ class JsonObjectBuilderRuntimeTest {
   private JsonMapping fieldMapping(String key, String field, JsonValueType type) {
     JsonMapping mapping = new JsonMapping();
     mapping.setKey(key);
-    mapping.setValueSource(JsonValueSource.FIELD);
+    mapping.setValueSource(SourceMode.FIELD);
     mapping.setValueField(field);
     mapping.setValueType(type);
     return mapping;

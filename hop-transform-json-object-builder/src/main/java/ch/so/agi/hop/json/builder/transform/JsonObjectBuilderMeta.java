@@ -1,5 +1,6 @@
 package ch.so.agi.hop.json.builder.transform;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonPointerEditor;
 import ch.so.agi.hop.json.builder.core.JsonValueConversion;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
@@ -199,11 +200,11 @@ public class JsonObjectBuilderMeta
     int row = 0;
     for (JsonMapping mapping : getMappings()) {
       row++;
-      JsonKeySource keySource = mapping.getKeySource();
+      SourceMode keySource = mapping.getKeySource();
       String keyText = null;
       String keyField = null;
       int keyIndex = -1;
-      if (keySource == JsonKeySource.LITERAL) {
+      if (keySource == SourceMode.CONFIGURED) {
         keyText = JsonTransformSupport.resolve(variables, mapping.getKey());
         if (keyText.isEmpty()) {
           throw new HopTransformException("Mapping row " + row + ": key is missing.");
@@ -226,12 +227,12 @@ public class JsonObjectBuilderMeta
         }
       }
 
-      JsonValueSource valueSource = mapping.getValueSource();
+      SourceMode valueSource = mapping.getValueSource();
       String valueText = null;
       String valueField = null;
       int valueIndex = -1;
       JsonValueType valueType = mapping.getValueType();
-      if (valueSource == JsonValueSource.LITERAL) {
+      if (valueSource == SourceMode.CONFIGURED) {
         valueText = JsonTransformSupport.resolve(variables, mapping.getValue());
         try {
           if (!(mapping.isSkipIfNull() && valueText.isEmpty())) {

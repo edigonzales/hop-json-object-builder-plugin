@@ -3,6 +3,7 @@ package ch.so.agi.hop.json.builder.transform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonSupport;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -153,7 +154,7 @@ class JsonBuilderRegressionTest {
       JsonObjectBuilderMeta om = objectMeta();
       JsonMapping mapping = om.getMappings().getFirst();
       mapping.setValueType(type);
-      mapping.setValueSource(JsonValueSource.LITERAL);
+      mapping.setValueSource(SourceMode.CONFIGURED);
       mapping.setValue("null");
       mapping.setSkipIfNull(skip);
       ObjectRunner object =
@@ -175,7 +176,7 @@ class JsonBuilderRegressionTest {
   void emptyLiteralsSkipValidationButInvalidNonemptyLiteralsStillFail() throws Exception {
     JsonObjectBuilderMeta meta = objectMeta();
     JsonMapping mapping = meta.getMappings().getFirst();
-    mapping.setValueSource(JsonValueSource.LITERAL);
+    mapping.setValueSource(SourceMode.CONFIGURED);
     mapping.setValueType(JsonValueType.INTEGER);
     mapping.setValue("");
     mapping.setSkipIfNull(true);

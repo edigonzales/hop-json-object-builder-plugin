@@ -1,6 +1,5 @@
 package ch.so.agi.hop.json.builder.transform;
 
-import ch.so.agi.hop.json.builder.core.JsonNodeSerializer;
 import ch.so.agi.hop.json.builder.core.JsonSupport;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -116,7 +115,9 @@ final class JsonTransformSupport {
       throws HopTransformException {
     if (outputType == JsonOutputType.STRING) {
       try {
-        return prettyPrint ? JsonNodeSerializer.pretty(node) : JsonNodeSerializer.compact(node);
+        return prettyPrint
+            ? JsonSupport.MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(node)
+            : JsonSupport.MAPPER.writeValueAsString(node);
       } catch (Exception e) {
         throw new HopTransformException(
             "Unable to serialize the JSON output: " + e.getMessage(), e);

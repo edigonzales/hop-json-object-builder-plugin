@@ -2,12 +2,17 @@ package ch.so.agi.hop.json.builder.transform;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.so.agi.hop.commons.core.SourceMode;
+import ch.so.agi.hop.commons.ui.ValueOrFieldControl;
+import ch.so.agi.hop.json.builder.core.JsonValueType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.history.AuditManager;
 import org.apache.hop.history.IAuditManager;
 import org.apache.hop.history.local.LocalAuditManager;
@@ -15,10 +20,15 @@ import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.BaseTransformMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.ui.core.widget.TextVar;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,9 +69,8 @@ class JsonBuilderDialogTest {
             text(fixture.dialog, "wTransformName").setText("renamed");
             text(fixture.dialog, "wOutputField").setText("changed_output");
             if (object) {
-              org.apache.hop.ui.core.widget.TableView mappings =
-                  (org.apache.hop.ui.core.widget.TableView) field(fixture.dialog, "wMappings");
-              mappings.table.getItem(0).setText(3, "absent");
+              ValueOrFieldControl value = editor(fixture, "wMappingValue");
+              ((Combo) field(value, "field")).setText("absent");
             } else {
               ((Combo) field(fixture.dialog, "wElementField")).setText("absent");
             }
@@ -118,6 +127,104 @@ class JsonBuilderDialogTest {
       candidate.getGroupByFields().clear();
       assertThat(target.getGroupByFields()).containsExactly("value");
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void mappingsKeepBothInputsAcrossRowsAndModesAndCommitOnlyOnOk(boolean save) throws Exception {
+    Fixture fixture = fixture(true);
+    JsonObjectBuilderMeta meta = (JsonObjectBuilderMeta) fixture.meta;
+    String before = meta.getXml();
+    String result =
+        exercise(
+            fixture,
+            () -> {
+              ValueOrFieldControl key = editor(fixture, "wMappingKey");
+              ValueOrFieldControl value = editor(fixture, "wMappingValue");
+              ((TextVar) field(key, "configured")).setText("fallback_key");
+              selectSource(key, 1);
+              Combo keyField = (Combo) field(key, "field");
+              assertThat(keyField.getItems()).contains("value");
+              keyField.setText("value");
+              selectSource(value, 0);
+              ((TextVar) field(value, "configured")).setText("fallback_value");
+              selectSource(value, 1);
+              ((Combo) field(value, "field")).setText("value");
+
+              Button remove = (Button) field(fixture.dialog, "wRemoveMapping");
+              Button add =
+                  Arrays.stream(remove.getParent().getChildren())
+                      .filter(Button.class::isInstance)
+                      .map(Button.class::cast)
+                      .filter(button -> button.getText().equals("Add"))
+                      .findFirst()
+                      .orElseThrow();
+              add.notifyListeners(SWT.Selection, new Event());
+              ((TextVar) field(key, "configured")).setText("count");
+              selectSource(value, 0);
+              ((TextVar) field(value, "configured")).setText("12");
+              Combo type = (Combo) field(fixture.dialog, "wMappingType");
+              type.setText(JsonValueType.NUMBER.getDescription());
+              type.notifyListeners(SWT.Selection, new Event());
+              Button skip = (Button) field(fixture.dialog, "wSkipWhenNull");
+              skip.setSelection(true);
+              skip.notifyListeners(SWT.Selection, new Event());
+              ((Button) field(fixture.dialog, "wMoveMappingUp"))
+                  .notifyListeners(SWT.Selection, new Event());
+
+              add.notifyListeners(SWT.Selection, new Event());
+              remove.notifyListeners(SWT.Selection, new Event());
+              Table mappings = (Table) field(fixture.dialog, "wMappings");
+              assertThat(mappings.getItemCount()).isEqualTo(2);
+              assertThat(mappings.getItem(0).getText(0)).isEqualTo("count");
+
+              mappings.setSelection(1);
+              mappings.notifyListeners(SWT.Selection, new Event());
+              selectSource(key, 0);
+              selectSource(value, 0);
+              assertThat(key.getValue().configuredValue()).isEqualTo("fallback_key");
+              assertThat(value.getValue().configuredValue()).isEqualTo("fallback_value");
+              selectSource(key, 1);
+              selectSource(value, 1);
+              assertThat(key.getValue().fieldName()).isEqualTo("value");
+              assertThat(value.getValue().fieldName()).isEqualTo("value");
+              assertThat(meta.getXml()).isEqualTo(before);
+              invoke(fixture.dialog, save ? "ok" : "cancel");
+              assertThat(fixture.warning()).isNull();
+            });
+
+    if (!save) {
+      assertThat(result).isNull();
+      assertThat(meta.getXml()).isEqualTo(before);
+      return;
+    }
+    assertThat(result).isEqualTo("builder");
+    var loaded = new JsonObjectBuilderMeta();
+    loaded.loadXml(XmlHandler.loadXmlString("<transform>" + meta.getXml() + "</transform>", "transform"), null);
+    assertThat(loaded.getMappings()).hasSize(2);
+    JsonMapping literal = loaded.getMappings().get(0);
+    assertThat(literal.getKey()).isEqualTo("count");
+    assertThat(literal.getValue()).isEqualTo("12");
+    assertThat(literal.getValueSource()).isEqualTo(SourceMode.CONFIGURED);
+    assertThat(literal.getValueType()).isEqualTo(JsonValueType.NUMBER);
+    assertThat(literal.isSkipIfNull()).isTrue();
+    JsonMapping dynamic = loaded.getMappings().get(1);
+    assertThat(dynamic.getKeySource()).isEqualTo(SourceMode.FIELD);
+    assertThat(dynamic.getValueSource()).isEqualTo(SourceMode.FIELD);
+    assertThat(dynamic.getKeyField()).isEqualTo("value");
+    assertThat(dynamic.getValueField()).isEqualTo("value");
+    assertThat(dynamic.getKey()).isEqualTo("fallback_key");
+    assertThat(dynamic.getValue()).isEqualTo("fallback_value");
+  }
+
+  private static ValueOrFieldControl editor(Fixture fixture, String name) throws Exception {
+    return (ValueOrFieldControl) field(fixture.dialog, name);
+  }
+
+  private static void selectSource(ValueOrFieldControl control, int index) throws Exception {
+    Combo source = (Combo) field(control, "source");
+    source.select(index);
+    source.notifyListeners(SWT.Selection, new Event());
   }
 
   private Fixture fixture(boolean object) {
