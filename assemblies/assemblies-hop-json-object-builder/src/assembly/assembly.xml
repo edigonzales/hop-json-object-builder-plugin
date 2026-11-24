@@ -21,13 +21,15 @@
 
     <dependencySet>
       <useProjectArtifact>false</useProjectArtifact>
-      <useTransitiveDependencies>false</useTransitiveDependencies>
+      <useTransitiveDependencies>true</useTransitiveDependencies>
       <outputDirectory>plugins/transforms/hop-json-object-builder/lib</outputDirectory>
       <outputFileNameMapping>${artifact.artifactId}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
       <scope>runtime</scope>
       <unpack>false</unpack>
       <includes>
         <include>ch.so.agi:hop-json-object-builder-core</include>
+        <include>ch.so.agi:hop-plugin-commons-core</include>
+        <include>ch.so.agi:hop-plugin-commons-ui</include>
       </includes>
     </dependencySet>
   </dependencySets>

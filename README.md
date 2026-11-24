@@ -131,7 +131,8 @@ The build produces:
 - `hop-transform-json-object-builder/target/hop-transform-json-object-builder-<version>.jar`
 - `assemblies/assemblies-hop-json-object-builder/target/hop-json-object-builder-plugin-<version>.zip`
 
-The ZIP contains one transform JAR and the core JAR under `lib/`.
+The ZIP contains one transform JAR, with the JSON Builder core and the Commons core and UI JARs
+under `lib/`.
 
 ## CI and publication
 

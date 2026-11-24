@@ -1,16 +1,17 @@
 package ch.so.agi.hop.json.builder.transform;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 
 /** A {@link JsonMapping} with resolved variable text and input row indexes. */
 final class ResolvedJsonMapping {
 
-  final JsonKeySource keySource;
+  final SourceMode keySource;
   final String keyText;
   final String keyFieldName;
   final int keyIndex;
 
-  final JsonValueSource valueSource;
+  final SourceMode valueSource;
   final String valueText;
   final String valueFieldName;
   final int valueIndex;
@@ -19,11 +20,11 @@ final class ResolvedJsonMapping {
   final boolean skipIfNull;
 
   ResolvedJsonMapping(
-      JsonKeySource keySource,
+      SourceMode keySource,
       String keyText,
       String keyFieldName,
       int keyIndex,
-      JsonValueSource valueSource,
+      SourceMode valueSource,
       String valueText,
       String valueFieldName,
       int valueIndex,
@@ -42,10 +43,10 @@ final class ResolvedJsonMapping {
   }
 
   boolean keyFromField() {
-    return keySource == JsonKeySource.FIELD;
+    return keySource == SourceMode.FIELD;
   }
 
   boolean valueFromField() {
-    return valueSource == JsonValueSource.FIELD;
+    return valueSource == SourceMode.FIELD;
   }
 }

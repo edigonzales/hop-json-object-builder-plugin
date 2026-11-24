@@ -106,9 +106,14 @@ def validate(path: Path, version: str) -> dict[str, object]:
             for entry in files
             if entry.startswith(f"{PLUGIN_ROOT}/lib/") and entry.endswith(".jar")
         )
-        if library_jars != [core_jar_name]:
+        expected_libraries = sorted([
+            core_jar_name,
+            f"{PLUGIN_ROOT}/lib/hop-plugin-commons-core.jar",
+            f"{PLUGIN_ROOT}/lib/hop-plugin-commons-ui.jar",
+        ])
+        if library_jars != expected_libraries:
             raise SystemExit(
-                f"Expected exactly one core runtime JAR {core_jar_name!r}, found {library_jars}"
+                f"Expected runtime JARs {expected_libraries}, found {library_jars}"
             )
 
         forbidden = sorted(

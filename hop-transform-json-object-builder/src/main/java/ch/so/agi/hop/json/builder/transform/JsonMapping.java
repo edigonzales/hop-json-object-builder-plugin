@@ -1,5 +1,6 @@
 package ch.so.agi.hop.json.builder.transform;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import java.util.Objects;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -11,7 +12,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 public class JsonMapping implements Cloneable {
 
   @HopMetadataProperty(key = "key_source")
-  private JsonKeySource keySource = JsonKeySource.LITERAL;
+  private SourceMode keySource = SourceMode.CONFIGURED;
 
   @HopMetadataProperty(key = "key")
   private String key;
@@ -20,7 +21,7 @@ public class JsonMapping implements Cloneable {
   private String keyField;
 
   @HopMetadataProperty(key = "value_source")
-  private JsonValueSource valueSource = JsonValueSource.FIELD;
+  private SourceMode valueSource = SourceMode.FIELD;
 
   @HopMetadataProperty(key = "value")
   private String value;
@@ -73,11 +74,11 @@ public class JsonMapping implements Cloneable {
         getKeySource(), key, keyField, getValueSource(), value, valueField, getValueType(), skipIfNull);
   }
 
-  public JsonKeySource getKeySource() {
-    return keySource == null ? JsonKeySource.LITERAL : keySource;
+  public SourceMode getKeySource() {
+    return keySource == null ? SourceMode.CONFIGURED : keySource;
   }
 
-  public void setKeySource(JsonKeySource keySource) {
+  public void setKeySource(SourceMode keySource) {
     this.keySource = keySource;
   }
 
@@ -97,11 +98,11 @@ public class JsonMapping implements Cloneable {
     this.keyField = keyField;
   }
 
-  public JsonValueSource getValueSource() {
-    return valueSource == null ? JsonValueSource.FIELD : valueSource;
+  public SourceMode getValueSource() {
+    return valueSource == null ? SourceMode.FIELD : valueSource;
   }
 
-  public void setValueSource(JsonValueSource valueSource) {
+  public void setValueSource(SourceMode valueSource) {
     this.valueSource = valueSource;
   }
 

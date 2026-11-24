@@ -2,6 +2,7 @@ package ch.so.agi.hop.json.builder.transform;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,9 +52,9 @@ class JsonBuilderExamplesTest {
     assertThat(assets.getGroupByFields()).containsExactly("item_id");
     assertThat(assets.isPrettyPrint()).isTrue();
     assertThat(assets.getMappings()).hasSize(1);
-    assertThat(assets.getMappings().get(0).getKeySource()).isEqualTo(JsonKeySource.FIELD);
+    assertThat(assets.getMappings().get(0).getKeySource()).isEqualTo(SourceMode.FIELD);
     assertThat(assets.getMappings().get(0).getKeyField()).isEqualTo("asset_key");
-    assertThat(assets.getMappings().get(0).getValueSource()).isEqualTo(JsonValueSource.FIELD);
+    assertThat(assets.getMappings().get(0).getValueSource()).isEqualTo(SourceMode.FIELD);
     assertThat(assets.getMappings().get(0).getValueField()).isEqualTo("asset_json");
   }
 

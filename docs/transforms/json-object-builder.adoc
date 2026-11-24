@@ -50,9 +50,13 @@ elements can be omitted.
 | Output type          [ JSON                                           v ]    |
 | JSON Pointer         [ /properties                                    ]     |
 |                                                                              |
-| Key source | Value source | Type | Skip when null                         |
-| id         | field        | AUTO | no                                    |
-| title      | field        | STRING | yes                                 |
+| Key        | Value        | Type   | Skip when null                           |
+| id         | Field: id    | AUTO   | N                                        |
+| title      | Field: title | STRING | Y                                        |
+| [ Add ] [ Remove ] [ Up ] [ Down ]                                             |
+| Key                  [ Configured v ] [ id                            ]      |
+| Value                [ Field      v ] [ id                          v ]      |
+| Value type           [ AUTO       v ] [ ] Skip when null                      |
 |                                                                              |
 |                                                          [ OK ] [ Cancel ]   |
 +==============================================================================+
@@ -79,7 +83,9 @@ elements can be omitted.
 |(empty, root)
 
 |Mappings
-|Key, value, type and null-skipping rules used to construct the object.
+|Select a mapping to edit its key, value, type and null-skipping rule below the table.
+Use *Configured* for literal text or *Field* to read the input row. The editor retains
+both entries when you switch modes. Use *Up* and *Down* to change the mapping order.
 |(none)
 
 |Group by fields

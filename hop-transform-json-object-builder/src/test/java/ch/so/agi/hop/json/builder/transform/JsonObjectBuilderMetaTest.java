@@ -3,6 +3,7 @@ package ch.so.agi.hop.json.builder.transform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import ch.so.agi.hop.commons.core.SourceMode;
 import ch.so.agi.hop.json.builder.core.JsonValueType;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,18 +55,18 @@ class JsonObjectBuilderMetaTest {
     meta.setJsonPointer("/assets");
 
     JsonMapping mapping = new JsonMapping();
-    mapping.setKeySource(JsonKeySource.FIELD);
+    mapping.setKeySource(SourceMode.FIELD);
     mapping.setKeyField("asset_key");
-    mapping.setValueSource(JsonValueSource.FIELD);
+    mapping.setValueSource(SourceMode.FIELD);
     mapping.setValueField("asset_json");
     mapping.setValueType(JsonValueType.JSON);
     mapping.setSkipIfNull(true);
     meta.getMappings().add(mapping);
 
     JsonMapping literal = new JsonMapping();
-    literal.setKeySource(JsonKeySource.LITERAL);
+    literal.setKeySource(SourceMode.CONFIGURED);
     literal.setKey("roles");
-    literal.setValueSource(JsonValueSource.LITERAL);
+    literal.setValueSource(SourceMode.CONFIGURED);
     literal.setValue("[\"data\"]");
     literal.setValueType(JsonValueType.JSON);
     meta.getMappings().add(literal);
@@ -87,7 +88,7 @@ class JsonObjectBuilderMetaTest {
     assertThat(copy.getMappings()).hasSize(2);
 
     JsonMapping copiedMapping = copy.getMappings().get(0);
-    assertThat(copiedMapping.getKeySource()).isEqualTo(JsonKeySource.FIELD);
+    assertThat(copiedMapping.getKeySource()).isEqualTo(SourceMode.FIELD);
     assertThat(copiedMapping.getKeyField()).isEqualTo("asset_key");
     assertThat(copiedMapping.getValueField()).isEqualTo("asset_json");
     assertThat(copiedMapping.getValueType()).isEqualTo(JsonValueType.JSON);
@@ -167,7 +168,7 @@ class JsonObjectBuilderMetaTest {
     meta.setOutputField("item_json");
     JsonMapping mapping = new JsonMapping();
     mapping.setKey("id");
-    mapping.setValueSource(JsonValueSource.FIELD);
+    mapping.setValueSource(SourceMode.FIELD);
     mapping.setValueField("missing");
     meta.getMappings().add(mapping);
 
@@ -195,7 +196,7 @@ class JsonObjectBuilderMetaTest {
 
     JsonMapping mapping = new JsonMapping();
     mapping.setKey("id");
-    mapping.setValueSource(JsonValueSource.LITERAL);
+    mapping.setValueSource(SourceMode.CONFIGURED);
     mapping.setValue("x");
     meta.getMappings().add(mapping);
 
@@ -213,7 +214,7 @@ class JsonObjectBuilderMetaTest {
     meta.setOutputField("item_json");
     JsonMapping mapping = new JsonMapping();
     mapping.setKey("count");
-    mapping.setValueSource(JsonValueSource.LITERAL);
+    mapping.setValueSource(SourceMode.CONFIGURED);
     mapping.setValue("abc");
     mapping.setValueType(JsonValueType.INTEGER);
     meta.getMappings().add(mapping);
@@ -239,9 +240,9 @@ class JsonObjectBuilderMetaTest {
     meta.getGroupByFields().add("item_id");
 
     JsonMapping mapping = new JsonMapping();
-    mapping.setKeySource(JsonKeySource.FIELD);
+    mapping.setKeySource(SourceMode.FIELD);
     mapping.setKeyField("asset_key");
-    mapping.setValueSource(JsonValueSource.FIELD);
+    mapping.setValueSource(SourceMode.FIELD);
     mapping.setValueField("asset_json");
     mapping.setValueType(JsonValueType.JSON);
     meta.getMappings().add(mapping);
